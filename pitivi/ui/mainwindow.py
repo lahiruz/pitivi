@@ -29,6 +29,8 @@ import gtk
 import gst
 from urllib import unquote
 import webbrowser
+from pitivi.ui.depsmanager import DepsManager
+from pitivi.check import soft_deps
 
 from gettext import gettext as _
 from gtk import RecentManager
@@ -118,6 +120,17 @@ GlobalSettings.addConfigOption('effectVPanedPosition',
     section='effect-configuration',
     key='effect-vpaned-position',
     type_=int)
+GlobalSettings.addConfigSection("authentification")
+GlobalSettings.addConfigOption('password',
+    section='authentification',
+    key='pass',
+    type_=str,
+    default=None)
+GlobalSettings.addConfigOption('login',
+    section='authentification',
+    key='log',
+    type_=str,
+    default=None)
 
 
 def supported(info):
@@ -235,6 +248,21 @@ class PitiviMainWindow(gtk.Window, Loggable):
     def _recordCb(self, unused_button):
         self.showEncodingDialog(self.project)
 
+    def showPublishToWebDialog(self, project, pause=True):
+        #TODO: Document
+
+        from publishtoweb import PublishToWebDialog
+
+        if pause:
+            project.pipeline.pause()
+        win = PublishToWebDialog(self, project)
+
+    def _publishCb(self, unused_button):
+        if "oauth2" in soft_deps or "gdata" in soft_deps:
+            DepsManager(self.app)
+        else:
+            self.showPublishToWebDialog(self.project)
+
     def _setActions(self, instance):
         PLAY = _("Start Playback")
         LOOP = _("Loop over selected area")
@@ -255,6 +283,8 @@ class PitiviMainWindow(gtk.Window, Loggable):
              None, _("Edit the project settings"), self._projectSettingsCb),
             ("RenderProject", 'pitivi-render', _("_Render..."),
              None, _("Export your project as a finished movie"), self._recordCb),
+            ("PublishToWeb", 'pitivi-publish', _("_Publish to Web"),
+             None, _("Publish to Web"), self._publishCb),
             ("Undo", gtk.STOCK_UNDO,
              _("_Undo"),
              "<Ctrl>Z", _("Undo the last operation"), self._undoCb),
@@ -314,6 +344,9 @@ class PitiviMainWindow(gtk.Window, Loggable):
                 # this will be set sensitive when the timeline duration changes
                 action.set_sensitive(False)
                 action.props.is_important = True
+            elif action_name == "PublishToWeb":
+                self.publish_button = action
+                action.set_sensitive(False)
             elif action_name in [
                 "ProjectSettings", "Quit", "File", "Edit", "Help", "About",
                 "View", "FullScreen", "FullScreenAlternate", "UserManual",
@@ -692,6 +725,7 @@ class PitiviMainWindow(gtk.Window, Loggable):
         self._connectToProjectSources(project.sources)
         can_render = project.timeline.duration > 0
         self.render_button.set_sensitive(can_render)
+        self.publish_button.set_sensitive(can_render)
         self._syncDoUndo(self.app.action_log)
 
         if self._missingUriOnLoading:
@@ -1008,6 +1042,7 @@ class PitiviMainWindow(gtk.Window, Loggable):
         else:
             sensitive = False
         self.render_button.set_sensitive(sensitive)
+        self.publish_button.set_sensitive(sensitive)
 
 ## other
 

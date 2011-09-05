@@ -34,6 +34,7 @@ pitivi_PYTHON = \
 	stream.py	\
 	threads.py	\
 	thumbnailcache.py \
+	uploader.py \
 	undo.py		\
 	utils.py
 
