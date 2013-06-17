@@ -213,14 +213,13 @@ class TimelineStage(Clutter.ScrollActor, Zoomable):
     def insertLayer(self, ghostclip):
         layer = None
         if ghostclip.priority < len(self.bTimeline.get_layers()):
-            self.bTimeline.enable_update(False)
             for layer in self.bTimeline.get_layers():
                 if layer.get_priority() >= ghostclip.priority:
                     layer.props.priority += 1
 
             layer = self.bTimeline.append_layer()
             layer.props.priority = ghostclip.priority
-            self.bTimeline.enable_update(True)
+            self.bTimeline.commit()
             self._container.controls._reorderLayerActors()
         return layer
 
@@ -934,24 +933,22 @@ class Timeline(Gtk.VBox, Zoomable):
 
     def _ungroupSelected(self, unused_action):
         if self.timeline:
-            self.timeline.enable_update(False)
             self.app.action_log.begin("ungroup")
 
             for clip in self.timeline.selection:
                 clip.ungroup(False)
 
-            self.timeline.enable_update(True)
+            self.timeline.commit()
             self.app.action_log.commit()
 
     def _groupSelected(self, unused_action):
         if self.timeline:
-            self.timeline.enable_update(False)
             self.app.action_log.begin("group")
 
             GES.Container.group(self.timeline.selection)
 
             self.app.action_log.commit()
-            self.timeline.enable_update(True)
+            self.timeline.commit()
 
     def _alignSelected(self, unused_action):
         if "NumPy" in missing_soft_deps:
@@ -962,11 +959,10 @@ class Timeline(Gtk.VBox, Zoomable):
 
             progress_dialog.window.show()
             self.app.action_log.begin("align")
-            self.timeline.enable_update(False)
 
             def alignedCb():  # Called when alignment is complete
-                self.timeline.enable_update(True)
                 self.app.action_log.commit()
+                self.timeline.commit()
                 progress_dialog.window.destroy()
 
             pmeter = self.timeline.alignSelection(alignedCb)
@@ -977,7 +973,6 @@ class Timeline(Gtk.VBox, Zoomable):
         """
         Split clips at the current playhead position, regardless of selections.
         """
-        self.bTimeline.enable_update(False)
         position = self.app.current.pipeline.getPosition()
 
         for track in self.bTimeline.get_tracks():
@@ -988,7 +983,7 @@ class Timeline(Gtk.VBox, Zoomable):
                     clip = element.get_parent()
                     clip.split(position)
 
-        self.bTimeline.enable_update(True)
+        self.bTimeline.commit()
 
     def _keyframe(self, action):
         """
