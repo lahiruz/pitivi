@@ -1600,7 +1600,8 @@ class Timeline(Gtk.VBox, Zoomable, Loggable):
         Gst.init([])
         GES.init()
 
-        self.project = GES.Project(uri=None, extractable_type=GES.Timeline)
+        self.project = GES.Project(self.app, uri=None,
+                extractable_type=GES.Timeline)
 
         bTimeline = GES.Timeline()
         bTimeline.add_track(GES.AudioTrack.new())

@@ -63,6 +63,30 @@ DEFAULT_AUDIO_ENCODER = "vorbisenc"
 #------------------ Backend classes ------------------------------------------#
 
 
+class AssetRemovedAction(UndoableAction):
+    def __init__(self, project, asset):
+        self.project = project
+        self.asset = asset
+
+    def undo(self):
+        self.project.add_asset(self.asset)
+
+    def do(self):
+        self.project.remove_asset(self.asset)
+
+
+class AssetAddedAction(UndoableAction):
+    def __init__(self, project, asset):
+        self.project = project
+        self.asset = asset
+
+    def undo(self):
+        self.project.remove_asset(self.asset)
+
+    def do(self):
+        self.project.add_asset(self.asset)
+
+
 class ProjectSettingsChanged(UndoableAction):
 
     def __init__(self, project, old, new):
@@ -86,14 +110,25 @@ class ProjectLogObserver(UndoableAction):
 
     def startObserving(self, project):
         project.connect("notify-meta", self._settingsChangedCb)
+        project.connect("asset-added", self._assetAddedCb)
+        project.connect("asset-removed", self._assetRemovedCb)
 
     def stopObserving(self, project):
         try:
             project.disconnect_by_func(self._settingsChangedCb)
+            project.disconnect_by_func(self._assetAddedCb)
         except Exception:
             # This can happen when we interrupt the loading of a project,
             # such as in mainwindow's _projectManagerMissingUriCb
             pass
+
+    def _assetAddedCb(self, project, asset):
+        action = AssetAddedAction(project, asset)
+        self.log.push(action)
+
+    def _assetRemovedCb(self, project, asset):
+        action = AssetRemovedAction(project, asset)
+        self.log.push(action)
 
     def _settingsChangedCb(self, project, item, value):
         """
@@ -157,7 +192,7 @@ class ProjectManager(Signallable, Loggable):
             self.debug('Loading project from backup "%s"' % uri)
 
         # Load the project:
-        self.current_project = Project(uri=uri)
+        self.current_project = Project(self.app, uri=uri)
         # For backup files and legacy formats, force the user to use "Save as"
         if use_backup or path.endswith(".xptv"):
             self.debug("Enforcing read-only mode")
@@ -418,7 +453,7 @@ class ProjectManager(Signallable, Loggable):
         if emission:
             self.emit("new-project-loading", None)
         # We don't have a URI here, None means we're loading a new project
-        project = Project(_("New Project"))
+        project = Project(self.app, _("New Project"))
 
         # setting default values for project metadata
         project.author = getpwuid(os.getuid()).pw_gecos.split(",")[0]
@@ -492,7 +527,10 @@ class ProjectManager(Signallable, Loggable):
         return name + ext + "~"
 
     def _missingURICb(self, project, error, asset, what=None):
-        return self.emit("missing-uri", project, error, asset)
+
+        result = self.emit("missing-uri", project, error, asset)
+
+        return result
 
     def _projectLoadedCb(self, project, timeline):
         self.debug("Project loaded %s", self.current_project.props.uri)
@@ -531,7 +569,7 @@ class Project(Loggable, GES.Project):
                                         GObject.TYPE_PYOBJECT,))
     }
 
-    def __init__(self, name="", uri=None, **kwargs):
+    def __init__(self, app, name="", uri=None, **kwargs):
         """
         @param name: the name of the project
         @param uri: the uri of the project
@@ -543,6 +581,8 @@ class Project(Loggable, GES.Project):
         self.timeline = None
         self.seeker = Seeker()
         self.uri = uri
+        self.app = app
+        self.loaded = False
 
         # Follow imports
         self._dirty = False
@@ -815,6 +855,9 @@ class Project(Loggable, GES.Project):
                 GObject.type_is_a(asset.get_extractable_type(), GES.UriClip)])
         if self.nb_remaining_file_to_import == 0:
             self.nb_imported_files = 0
+            # We do not take into account asset comming from project
+            if self.loaded is True:
+                self.app.action_log.commit()
             self._emitChange("done-importing")
 
     def do_asset_added(self, asset):
@@ -830,6 +873,7 @@ class Project(Loggable, GES.Project):
 
     def do_loaded(self, timeline):
         """ vmethod, get called on "loaded" """
+        self.loaded = True
         self._ensureTracks()
         #self._ensureLayer()
 
@@ -898,6 +942,7 @@ class Project(Loggable, GES.Project):
         The uris will be analyzed before being added.
         """
         # Do not try to reload URIS that we already have loaded
+        self.app.action_log.begin("Adding assets")
         for uri in uris:
             self.create_asset(quote_uri(uri), GES.UriClip)
         self._calculateNbLoadingAssets()

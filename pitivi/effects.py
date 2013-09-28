@@ -608,7 +608,7 @@ class EffectListWidget(Gtk.VBox, Loggable):
         else:
             return [dnd.AUDIO_EFFECT_TARGET_ENTRY, dnd.EFFECT_TARGET_ENTRY]
 
-PROPS_TO_IGNORE = ['name', 'qos', 'silent', 'message']
+PROPS_TO_IGNORE = ['name', 'qos', 'silent', 'message', 'parent']
 
 
 class EffectsPropertiesManager:

@@ -50,8 +50,7 @@ from pitivi.utils.signal import Signallable
 from pitivi.utils.system import getSystem
 from pitivi.utils.loggable import Loggable
 import pitivi.utils.loggable as log
-#FIXME GES port disabled it
-#from pitivi.undo.timeline import TimelineLogObserver
+from pitivi.undo.timeline import TimelineLogObserver
 
 
 """
@@ -142,8 +141,7 @@ class Pitivi(Loggable, Signallable):
         self.action_log = UndoableActionLog()
         self.debug_action_log_observer = DebugActionLogObserver()
         self.debug_action_log_observer.startObserving(self.action_log)
-        # TODO reimplement the observing after GES port
-        #self.timelineLogObserver = TimelineLogObserver(self.action_log)
+        self.timelineLogObserver = TimelineLogObserver(self.action_log)
         self.projectLogObserver = ProjectLogObserver(self.action_log)
 
         self.version_information = {}
@@ -191,7 +189,7 @@ class Pitivi(Loggable, Signallable):
     def _projectManagerNewProjectLoaded(self, projectManager, project, unused_fully_loaded):
         self.current_project = project
         self.action_log.clean()
-        #self.timelineLogObserver.startObserving(project.timeline)
+        self.timelineLogObserver.startObserving(project.timeline)
         self.projectLogObserver.startObserving(project)
         self._newProjectLoaded(project)
         self.emit("new-project-loaded", project)
@@ -203,7 +201,7 @@ class Pitivi(Loggable, Signallable):
         return self.emit("closing-project", project)
 
     def _projectManagerProjectClosed(self, projectManager, project):
-        #self.timelineLogObserver.stopObserving(project.timeline)
+        self.timelineLogObserver.stopObserving(project.timeline)
         self.projectLogObserver.stopObserving(project)
         self.current_project = None
         self.emit("project-closed", project)

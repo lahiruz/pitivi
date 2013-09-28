@@ -599,6 +599,7 @@ class MediaLibraryWidget(Gtk.VBox, Loggable):
         """ a file was added to the medialibrary """
         if isinstance(asset, GES.UriClipAsset):
             self._updateProgressbar()
+            self._welcome_infobar.hide()
             self._addAsset(asset)
 
     def _assetRemovedCb(self, unsued_project, asset):
@@ -623,7 +624,6 @@ class MediaLibraryWidget(Gtk.VBox, Loggable):
 
     def _sourcesStartedImportingCb(self, unsued_project):
         self.import_start_time = time.time()
-        self._welcome_infobar.hide()
         self._progressbar.show()
 
     def _sourcesStoppedImportingCb(self, unsued_project):
